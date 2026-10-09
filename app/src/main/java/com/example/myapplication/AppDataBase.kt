@@ -33,7 +33,10 @@ abstract class AppDataBase : RoomDatabase(){
                         context,
                         AppDataBase::class.java,
                         "app_database"
-                    )
+                    ).build()
+
+                    INSTACE = instance
+                    return instance
                 }
             }
         }
