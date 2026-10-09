@@ -11,6 +11,8 @@ import androidx.room3.RoomDatabase
 )
 abstract class AppDataBase : RoomDatabase(){
 
+    abstract fun filmesDAO(): FilmesDAO
+
     // para criar banco so uma vez
     companion object{
 
