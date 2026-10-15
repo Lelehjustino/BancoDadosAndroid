@@ -193,7 +193,7 @@ suspend fun buscarFilmes(filmesDao: FilmesDAO): List<Filmes> {
 
 suspend fun inserirFilme(nome: String, desc: String, filmesDao: FilmesDAO) {
     try {
-        filmesDao.inserir(Filmes(nome = nome, desc = desc))
+        filmesDao.inserir(Filmes(id = 1, nome = nome, desc = desc))
     } catch (e: Exception) {
         Log.e("Erro ao adicionar", "Msg: ${e.message}")
     }
