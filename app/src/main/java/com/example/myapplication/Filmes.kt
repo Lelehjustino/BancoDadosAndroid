@@ -7,7 +7,7 @@ import androidx.room3.PrimaryKey
 @Entity(tableName = "filmes")
 data class Filmes(
     @PrimaryKey(autoGenerate = true)
-    val id: Int,
+    val id: Int = 0,
 
     val nome: String,
     val desc: String

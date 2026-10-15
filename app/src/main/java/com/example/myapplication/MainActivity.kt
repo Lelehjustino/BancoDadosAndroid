@@ -131,6 +131,7 @@ fun TelaCadastroFilmes(){
             Button(
                 onClick = {
                     if(nome.isNotBlank() && descricao.isNotBlank()){
+                        // CoroutineScope -> faz a rotina separada para não travar a tela
                         CoroutineScope(Dispatchers.IO).launch {
                             inserirFilme(nome, descricao, filmesDao)
                         }
@@ -193,7 +194,13 @@ suspend fun buscarFilmes(filmesDao: FilmesDAO): List<Filmes> {
 
 suspend fun inserirFilme(nome: String, desc: String, filmesDao: FilmesDAO) {
     try {
-        filmesDao.inserir(Filmes(id = 1, nome = nome, desc = desc))
+        val filme = Filmes(
+            nome = nome,
+            desc = desc
+        )
+
+        filmesDao.inserir(filme)
+        // filmesDao.inserir(Filmes(id = 40, nome = nome, desc = desc))
     } catch (e: Exception) {
         Log.e("Erro ao adicionar", "Msg: ${e.message}")
     }
