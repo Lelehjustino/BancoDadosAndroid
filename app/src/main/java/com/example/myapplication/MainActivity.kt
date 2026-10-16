@@ -37,6 +37,7 @@ import kotlinx.coroutines.Dispatchers
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -65,11 +66,13 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.nio.file.WatchEvent
 
 class MainActivity : ComponentActivity() {
@@ -84,6 +87,11 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun TelaCadastroFilmes(){
 
+    var estouEditando by remember { mutableStateOf(false) }
+    var filmeEmEdicao by remember {
+        mutableStateOf<Filmes?>(value = null)
+    }
+
     var nome by remember { mutableStateOf("") }
     var descricao by remember { mutableStateOf("") }
 
@@ -92,10 +100,16 @@ fun TelaCadastroFilmes(){
     val contex = LocalContext.current
     val db = AppDataBase.getDatabase(contex)
     val filmesDao = db.filmesDAO()
+    val operacoesDoBanco = OperacoesDoBanco()
+
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
-        filmes = buscarFilmes(filmesDao)
-        Log.d("Busca ok", "... ${filmes}")
+        filmes = withContext(Dispatchers.IO) {
+            operacoesDoBanco.buscarFilmes(filmesDao)
+        }
+
+        Log.d("Busca ok", "Filmes encontrados: ${filmes.size}")
     }
 
     Column (
@@ -133,12 +147,21 @@ fun TelaCadastroFilmes(){
                     if(nome.isNotBlank() && descricao.isNotBlank()){
                         // CoroutineScope -> faz a rotina separada para não travar a tela
                         CoroutineScope(Dispatchers.IO).launch {
-                            inserirFilme(nome, descricao, filmesDao)
+                            if (estouEditando) {
+                                val filmeTemp = filmeEmEdicao!!.copy(nome = nome, desc = descricao)
+
+                                operacoesDoBanco.atualizarFilme(filmeTemp, filmesDao)
+                            } else {
+                                operacoesDoBanco.inserirFilme(nome, descricao, filmesDao)
+                            }
+                            filmes = operacoesDoBanco.buscarFilmes(filmesDao)
+                            nome = ""
+                            descricao = ""
                         }
                     }
                 }
             ) {
-                Text("Adicionar Filme")
+               if(estouEditando) Text("Editar Filme") else Text("Adicionar Filme")
             }
 
         }
@@ -146,9 +169,22 @@ fun TelaCadastroFilmes(){
         Spacer(modifier = Modifier.height(10.dp))
 
         LazyColumn {
-            items(filmes){
-                    filme ->
-                umFilme(filme.id, filme.nome, filme.desc)
+            items(filmes){ filme ->
+                umFilme(
+                    umFilme = filme,
+                    aoRemover = {
+                        CoroutineScope(Dispatchers.IO).launch {
+                            operacoesDoBanco.deletarFilme(filme, filmesDao)
+                            filmes = operacoesDoBanco.buscarFilmes(filmesDao)
+                        }
+                    },
+                    aoEditar = {
+                        nome = filme.nome
+                        descricao = filme.desc
+                        estouEditando = true
+                        filmeEmEdicao = filme
+                    }
+                )
             }
         }
 
@@ -157,9 +193,12 @@ fun TelaCadastroFilmes(){
 
 }
 
-@Preview
 @Composable
-fun umFilme(id:Int = 0, nome: String = "Nome aqui", desc: String = "Descricao aqui"){
+fun umFilme(
+    umFilme: Filmes,
+    aoRemover: (Filmes) -> Unit,
+    aoEditar: (Filmes) -> Unit,
+){
     Card(
         modifier = Modifier.height(80.dp).fillMaxWidth().padding(5.dp),
         elevation = CardDefaults.cardElevation(5.dp),
@@ -170,38 +209,31 @@ fun umFilme(id:Int = 0, nome: String = "Nome aqui", desc: String = "Descricao aq
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = "$id", style = MaterialTheme.typography.bodyMedium)
+            Text(text = "${umFilme.id}", style = MaterialTheme.typography.bodyMedium)
 
             Column {
-                Text(text = nome, style = MaterialTheme.typography.titleLarge)
-                Text(text = desc, style = MaterialTheme.typography.titleSmall)
+                Text(text = umFilme.nome, style = MaterialTheme.typography.titleLarge)
+                Text(text = umFilme.desc, style = MaterialTheme.typography.titleSmall)
             }
 
-            Icon(Icons.Default.Edit, "", modifier = Modifier.size(30.dp))
-            Icon(Icons.Default.Close, "", modifier = Modifier.size(30.dp))
+            Icon(
+                Icons.Default.Edit,
+                "",
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable {
+                        aoEditar(umFilme)
+                    }
+            )
+            Icon(
+                Icons.Default.Close,
+                "",
+                modifier = Modifier
+                    .size(30.dp)
+                    .clickable {
+                        aoRemover(umFilme)
+                    }
+            )
         }
-    }
-}
-
-suspend fun buscarFilmes(filmesDao: FilmesDAO): List<Filmes> {
-    return try {
-        filmesDao.buscarTodosFilmes()
-    } catch (e: Exception) {
-        Log.e("Erro ao buscar", "${e.message}")
-        emptyList()
-    }
-}
-
-suspend fun inserirFilme(nome: String, desc: String, filmesDao: FilmesDAO) {
-    try {
-        val filme = Filmes(
-            nome = nome,
-            desc = desc
-        )
-
-        filmesDao.inserir(filme)
-        // filmesDao.inserir(Filmes(id = 40, nome = nome, desc = desc))
-    } catch (e: Exception) {
-        Log.e("Erro ao adicionar", "Msg: ${e.message}")
     }
 }
