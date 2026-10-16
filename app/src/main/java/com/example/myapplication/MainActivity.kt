@@ -151,6 +151,7 @@ fun TelaCadastroFilmes(){
                                 val filmeTemp = filmeEmEdicao!!.copy(nome = nome, desc = descricao)
 
                                 operacoesDoBanco.atualizarFilme(filmeTemp, filmesDao)
+                                estouEditando = false
                             } else {
                                 operacoesDoBanco.inserirFilme(nome, descricao, filmesDao)
                             }
